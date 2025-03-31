@@ -1,0 +1,75 @@
+import pandas as pd
+from google.colab import files
+import ipywidgets as widgets
+from IPython.display import display, clear_output, HTML
+
+# Subir el archivo Excel
+uploaded = files.upload()
+
+# Obtener el nombre del archivo
+filename = list(uploaded.keys())[0]
+
+# Cargar TODAS las hojas del Excel en un diccionario de DataFrames
+sheets = pd.read_excel(filename, sheet_name=None)
+
+# Mostrar las hojas cargadas
+print("✅ Hojas cargadas:", list(sheets.keys()))
+
+# Función para buscar en todo el Excel y mostrar la fila completa
+def buscar_palabra_en_excel(palabra):
+    palabra = palabra.strip()
+    resultados_html = []
+    hay_resultados = False  # Bandera para verificar si hubo coincidencias
+
+    for sheet_name, df in sheets.items():
+        df = df.astype(str)  # Convertir todo a string para evitar errores
+        resultado = df[df.apply(lambda row: row.str.contains(palabra, case=False, na=False).any(), axis=1)]
+
+        if not resultado.empty:
+            hay_resultados = True  # Se encontró al menos una coincidencia
+
+            # Convertir el DataFrame a HTML con formato de tabla
+            resultados_html.append(f"<h3>📄 <u>Hoja: {sheet_name}</u></h3>{resultado.to_html(border=1, index=False)}")
+
+    if not hay_resultados:
+        return "<h3 style='color: red;'>❌ No encontrado</h3>"
+    return "<br>".join(resultados_html)
+
+# Crear widgets interactivos
+entrada = widgets.Text(placeholder="Ingrese palabra a buscar", layout=widgets.Layout(width='300px'))
+boton_buscar = widgets.Button(description="🔍 Buscar", button_style='primary')
+boton_actualizar = widgets.Button(description="🔄 Actualizar", button_style='warning')
+salida = widgets.Output()
+
+# Función al presionar el botón de búsqueda
+def on_button_click(b=None):
+    with salida:
+        clear_output(wait=True)  # Limpia la salida anterior
+        palabra = entrada.value.strip()
+
+        if not palabra:
+            display(HTML("<h3 style='color: red;'>⚠️ Ingrese una palabra válida.</h3>"))
+            return
+
+        resultado = buscar_palabra_en_excel(palabra)
+        display(HTML(resultado))
+
+# Función para limpiar la búsqueda
+def on_refresh(b):
+    entrada.value = ""  # Vaciar el cuadro de búsqueda
+    with salida:
+        clear_output(wait=True)  # Limpiar los resultados
+
+# Conectar eventos
+boton_buscar.on_click(on_button_click)
+boton_actualizar.on_click(on_refresh)
+entrada.on_submit(on_button_click)  # Permite buscar con ENTER
+
+# Diseño con VBox y HBox para mejor alineación
+ui = widgets.VBox([
+    widgets.HBox([entrada, boton_buscar, boton_actualizar]),
+    salida
+])
+
+# Mostrar widgets
+display(ui)
